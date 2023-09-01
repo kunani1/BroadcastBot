@@ -2,9 +2,9 @@ import os
 import traceback
 import logging
 
-from pyrogram import Client
-from pyrogram import StopPropagation, filters
+from pyrogram import Client, filters
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.errors import StopPropagation
 
 import config
 from handlers.broadcast import broadcast
@@ -17,7 +17,6 @@ DB_URL = config.DB_URL
 DB_NAME = config.DB_NAME
 
 db = Database(DB_URL, DB_NAME)
-
 
 Bot = Client(
     "BroadcastBot",
@@ -32,7 +31,6 @@ async def _(bot, cmd):
 
 @Bot.on_message(filters.command("start") & filters.private)
 async def startprivate(client, message):
-    # return
     chat_id = message.from_user.id
     if not await db.is_user_exist(chat_id):
         data = await client.get_me()
@@ -59,12 +57,11 @@ async def startprivate(client, message):
     await message.reply_text(welcomed, reply_markup=joinButton)
     raise StopPropagation
 
-
 @Bot.on_message(filters.command("settings"))
 async def opensettings(bot, cmd):
     user_id = cmd.from_user.id
     await cmd.reply_text(
-        f"`Here You Can Set Your Settings:`\n\nSuccessfully setted notifications to **{await db.get_notif(user_id)}**",
+        f"`Here You Can Set Your Settings:`\n\nSuccessfully set notifications to **{await db.get_notif(user_id)}**",
         reply_markup=InlineKeyboardMarkup(
             [
                 [
@@ -76,7 +73,7 @@ async def opensettings(bot, cmd):
                 [InlineKeyboardButton("❎", callback_data="closeMeh")],
             ]
         ),
-    )
+        )
 
 
 @Bot.on_message(filters.private & filters.command("broadcast"))
@@ -201,22 +198,20 @@ async def _banned_usrs(c, m):
     await m.reply_text(reply_text, True)
 
 
+
 @Bot.on_callback_query()
 async def callback_handlers(bot: Client, cb: CallbackQuery):
     user_id = cb.from_user.id
     if cb.data == "notifon":
         notif = await db.get_notif(cb.from_user.id)
-        if notif is True:
-            await db.set_notif(user_id, notif=False)
-        else:
-            await db.set_notif(user_id, notif=True)
+        await db.set_notif(user_id, notif=not notif)  # Toggle notification
         await cb.message.edit(
-            f"`Here You Can Set Your Settings:`\n\nSuccessfully setted notifications to **{await db.get_notif(user_id)}**",
+            f"`Here You Can Set Your Settings:`\n\nSuccessfully set notifications to **{await db.get_notif(user_id)}**",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
                         InlineKeyboardButton(
-                            f"NOTIFICATION  {'🔔' if ((await db.get_notif(user_id)) is True) else '🔕'}",
+                            f"NOTIFICATION  {'🔔' if notif else '🔕'}",
                             callback_data="notifon",
                         )
                     ],
@@ -225,10 +220,9 @@ async def callback_handlers(bot: Client, cb: CallbackQuery):
             ),
         )
         await cb.answer(
-            f"Successfully setted notifications to {await db.get_notif(user_id)}"
+            f"Successfully set notifications to {'on' if notif else 'off'}"
         )
     else:
         await cb.message.delete(True)
-
 
 Bot.run()
