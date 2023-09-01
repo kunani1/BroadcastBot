@@ -86,14 +86,15 @@ async def broadcast_handler_open(_, m):
     else:
         await broadcast(m, db)
 
-
 @Bot.on_message(filters.private & filters.command("stats"))
-async def sts(c, m):
+async def stats_handler(_, m):
     if m.from_user.id not in AUTH_USERS:
         await m.delete()
         return
+    total_users = await db.total_users_count()
+    total_notif_users = await db.total_notif_users_count()
     await m.reply_text(
-        text=f"**Total Users in Database 📂:** `{await db.total_users_count()}`\n\n**Total Users with Notification Enabled 🔔 :** `{await db.total_notif_users_count()}`",
+        text=f"**Total Users in Database 📂:** `{total_users}`\n\n**Total Users with Notification Enabled 🔔 :** `{total_notif_users}`",
         quote=True
     )
 
