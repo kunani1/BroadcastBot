@@ -9,12 +9,7 @@ import time
 import traceback
 
 import aiofiles
-from pyrogram.errors import (
-    FloodWait,
-    InputUserDeactivated,
-    PeerIdInvalid,
-    UserIsBlocked,
-)
+from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 
 import config
 
@@ -32,7 +27,7 @@ async def send_msg(user_id, message):
         return 200, None
     except FloodWait as e:
         await asyncio.sleep(e.x)
-        return send_msg(user_id, message)
+        return await send_msg(user_id, message)
     except InputUserDeactivated:
         return 400, f"{user_id} : deactivated\n"
     except UserIsBlocked:
@@ -47,11 +42,11 @@ async def broadcast(m, db):
     all_users = await db.get_all_notif_user()
     broadcast_msg = m.reply_to_message
     while True:
-        broadcast_id = "".join([random.choice(string.ascii_letters) for i in range(3)])
+        broadcast_id = "".join([random.choice(string.ascii_letters) for _ in range(3)])
         if not broadcast_ids.get(broadcast_id):
             break
     out = await m.reply_text(
-        text=f"Broadcast Started! You will be notified with log file when all the users are notified."
+        text=f"Broadcast Started! You will be notified with a log file when all the users are notified."
     )
     start_time = time.time()
     total_users = await db.total_users_count()
@@ -62,7 +57,7 @@ async def broadcast(m, db):
         total=total_users, current=done, failed=failed, success=success
     )
     async with aiofiles.open("broadcast.txt", "w") as broadcast_log_file:
-        async for user in all_users:
+        for user in all_users:
             sts, msg = await send_msg(user_id=int(user["id"]), message=broadcast_msg)
             if msg is not None:
                 await broadcast_log_file.write(msg)
@@ -96,3 +91,4 @@ async def broadcast(m, db):
             quote=True,
         )
     os.remove("broadcast.txt")
+                
