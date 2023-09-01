@@ -4,7 +4,6 @@ import logging
 
 from pyrogram import Client, filters
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-from pyrogram.errors import StopPropagation
 
 import config
 from handlers.broadcast import broadcast
@@ -55,26 +54,27 @@ async def startprivate(client, message):
     )
     welcomed = f"Hey <b>{message.from_user.first_name}</b>\nI'm a simple Telegram bot that can broadcast messages and media to the bot subscribers. Made by @NACBOTS.\n\n 🎚 use /settings"
     await message.reply_text(welcomed, reply_markup=joinButton)
-    raise StopPropagation
 
 @Bot.on_message(filters.command("settings"))
 async def opensettings(bot, cmd):
     user_id = cmd.from_user.id
-    await cmd.reply_text(
-        f"`Here You Can Set Your Settings:`\n\nSuccessfully set notifications to **{await db.get_notif(user_id)}**",
-        reply_markup=InlineKeyboardMarkup(
+    notif = await db.get_notif(user_id)
+    notif_text = "🔔" if notif else "🔕"
+    keyboard = InlineKeyboardMarkup(
+        [
             [
-                [
-                    InlineKeyboardButton(
-                        f"NOTIFICATION  {'🔔' if ((await db.get_notif(user_id)) is True) else '🔕'}",
-                        callback_data="notifon",
-                    )
-                ],
-                [InlineKeyboardButton("❎", callback_data="closeMeh")],
-            ]
-        ),
-        )
-
+                InlineKeyboardButton(
+                    f"NOTIFICATION {notif_text}",
+                    callback_data="toggle_notif",
+                )
+            ],
+            [InlineKeyboardButton("❎", callback_data="closeMeh")],
+        ]
+    )
+    await cmd.reply_text(
+        f"`Here You Can Set Your Settings:`\n\nSuccessfully set notifications to **{notif_text}**",
+        reply_markup=keyboard,
+    )
 
 @Bot.on_message(filters.private & filters.command("broadcast"))
 async def broadcast_handler_open(_, m):
@@ -198,29 +198,30 @@ async def _banned_usrs(c, m):
     await m.reply_text(reply_text, True)
 
 
-
 @Bot.on_callback_query()
 async def callback_handlers(bot: Client, cb: CallbackQuery):
     user_id = cb.from_user.id
-    if cb.data == "notifon":
-        notif = await db.get_notif(cb.from_user.id)
+    if cb.data == "toggle_notif":
+        notif = await db.get_notif(user_id)
         await db.set_notif(user_id, notif=not notif)  # Toggle notification
-        await cb.message.edit(
-            f"`Here You Can Set Your Settings:`\n\nSuccessfully set notifications to **{await db.get_notif(user_id)}**",
-            reply_markup=InlineKeyboardMarkup(
+        notif_text = "🔔" if not notif else "🔕"
+        keyboard = InlineKeyboardMarkup(
+            [
                 [
-                    [
-                        InlineKeyboardButton(
-                            f"NOTIFICATION  {'🔔' if notif else '🔕'}",
-                            callback_data="notifon",
-                        )
-                    ],
-                    [InlineKeyboardButton("❎", callback_data="closeMeh")],
-                ]
-            ),
+                    InlineKeyboardButton(
+                        f"NOTIFICATION {notif_text}",
+                        callback_data="toggle_notif",
+                    )
+                ],
+                [InlineKeyboardButton("❎", callback_data="closeMeh")],
+            ]
+        )
+        await cb.message.edit(
+            f"`Here You Can Set Your Settings:`\n\nSuccessfully set notifications to **{notif_text}**",
+            reply_markup=keyboard,
         )
         await cb.answer(
-            f"Successfully set notifications to {'on' if notif else 'off'}"
+            f"Successfully set notifications to {notif_text}"
         )
     else:
         await cb.message.delete(True)
